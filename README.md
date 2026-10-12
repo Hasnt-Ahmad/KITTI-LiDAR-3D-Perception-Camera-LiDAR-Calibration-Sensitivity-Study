@@ -1,164 +1,146 @@
-# KITTI 3D Detection & Tracking Viewer
+# KITTI LiDAR 3D Perception & Camera–LiDAR Calibration Sensitivity Study
 
-A practical computer vision project for exploring **KITTI 3D object detection data** through LiDAR point-cloud visualization, camera projection, Bird's-Eye View (BEV) representations, and 3D bounding-box rendering.
+A Python-based KITTI 3D perception project for visualizing LiDAR point clouds, camera images, and 3D bounding boxes. I extended the visualization pipeline with a calibration sensitivity experiment to measure how simulated camera-frame rotational and translational errors affect LiDAR-to-image projection.
 
-The project focuses on understanding how autonomous-driving datasets connect **LiDAR coordinates, camera coordinates, image pixels, calibration matrices, and 3D object annotations**.
-
+- **Dataset:** KITTI 3D Object Detection
+- **Focus:** 3D perception, sensor geometry, camera–LiDAR calibration, and projection sensitivity
+- **Evaluation:** 30 KITTI frames
+- **Tools:** Python, NumPy, OpenCV, Vedo
+- **Project type:** Experimental analysis of geometric sensitivity
 ---
+
+## Key Findings
+
+The experiment introduces controlled perturbations to the camera-frame extrinsic transformation and measures the resulting displacement of projected LiDAR points.
+
+| Configuration | Mean Pixel Displacement (px) | Mean Per-Frame 95th Percentile (px) |
+|---|---:|---:|
+| Baseline calibration | 0.00 | 0.00 |
+| Rotation around camera Y-axis: +1° | 15.18 | 20.57 |
+| Rotation around camera Y-axis: +2° | 30.39 | 41.16 |
+| Rotation around camera X-axis: +1° | 12.81 | 13.39 |
+| Translation along camera X-axis: +0.05 m | 3.25 | 6.41 |
+
+**Interpretation:** In this experiment, small rotational perturbations produced noticeable changes in the image-plane positions of projected LiDAR points. A +2° rotation around the camera Y-axis resulted in an average displacement of approximately 30.39 pixels, while a +0.05 m translation along the camera X-axis resulted in approximately 3.25 pixels of average displacement.
+
+The reported displacement values are averages of per-frame statistics across the evaluated frames. The 95th-percentile column represents the average of each frame's 95th-percentile displacement; it is not a pooled percentile across all points.
+
+### Image Visibility Under Perturbation
+
+This metric measures the percentage of baseline-visible points that remain inside the image boundaries after applying a perturbation.
+
+| Configuration | Mean Visible Fraction |
+|---|---:|
+| Baseline calibration | 100.00% |
+| Rotation around camera Y-axis: +1° | 98.80% |
+| Rotation around camera Y-axis: +2° | 97.47% |
+| Rotation around camera X-axis: −2° | 91.33% |
+
+Visibility loss means that some projected points moved outside the image boundaries. It does **not** directly indicate object-detection failure or reduced sensor-fusion accuracy.
 
 ## Project Overview
 
-3D perception for autonomous vehicles requires understanding multiple coordinate systems and sensor representations.
+Reliable autonomous-driving perception depends on correctly relating observations from different sensors. In camera–LiDAR systems, extrinsic calibration describes the geometric transformation between the LiDAR and camera coordinate frames.
 
-In this project, I worked with the **KITTI 3D Object Detection dataset** and implemented a visualization pipeline that:
+Even when the underlying LiDAR point cloud remains unchanged, errors in this transformation can shift projected points relative to image features, road boundaries, and visible objects. This project investigates that geometric sensitivity using the KITTI dataset.
 
-* Loads KITTI LiDAR `.bin` point clouds.
-* Reads KITTI camera calibration files.
-* Applies LiDAR-to-camera coordinate transformations.
-* Projects 3D LiDAR points into the camera image.
-* Reads KITTI 3D object annotations.
-* Converts KITTI bounding-box representations into a common format.
-* Visualizes LiDAR point clouds.
-* Generates Bird's-Eye View (BEV) representations.
-* Projects 3D bounding boxes onto camera images.
-* Renders 3D bounding boxes using `vedo`.
-* Displays object IDs and class information.
-* Generates 3D scene screenshots for portfolio visualization.
+The original visualization pipeline supports:
 
-The project helped me move from conventional 2D computer vision toward **3D perception for autonomous driving**.
+- Loading KITTI LiDAR point clouds.
+- Displaying camera images and LiDAR-based bird's-eye views.
+- Visualizing 3D bounding boxes.
+- Reading KITTI calibration parameters.
+- Projecting LiDAR points into camera images.
 
----
+The calibration sensitivity experiment builds on these capabilities by introducing controlled errors into the extrinsic transformation and quantifying the resulting changes in image-space projections.
 
-## What I Practiced
+## Calibration Sensitivity Experiment
 
-### 3D Perception
+### 1. Baseline Projection
 
-* LiDAR point-cloud processing
-* 3D coordinate systems
-* Camera-LiDAR transformations
-* Homogeneous coordinates
-* 3D bounding-box representation
-* Object orientation / yaw
-* Point-cloud visualization
-* Bird's-Eye View representations
+LiDAR points are transformed into the camera coordinate frame using the KITTI calibration parameters. The camera projection matrix is then used to map the transformed 3D points to image coordinates.
 
-### Camera-LiDAR Calibration
+The baseline projection provides the reference against which perturbed projections are compared.
 
-* KITTI `P2` projection matrix
-* `Tr_velo_to_cam` transformation
-* `R0_rect` rectification matrix
-* LiDAR → camera transformation
-* Camera → LiDAR transformation
-* 3D → 2D image projection
+### 2. Simulated Calibration Errors
 
-### Visualization
+Controlled rotational and translational perturbations are applied to the camera-frame extrinsic transformation.
 
-* LiDAR scatter visualization
-* 3D bounding-box rendering
-* BEV visualization
-* Camera-image overlays
-* 3D scene rendering with `vedo`
-* Offscreen rendering and screenshot generation
+The evaluated perturbations include:
 
----
+- **Rotation:** ±0.5°, ±1°, and ±2° around the camera X, Y, and Z axes.
+- **Translation:** ±0.02 m, ±0.05 m, and ±0.10 m along the camera X, Y, and Z axes.
 
-# Dataset
+These are simulated perturbations used for analysis; they are not measurements of actual calibration errors in a deployed vehicle.
 
-This project uses the **KITTI 3D Object Detection dataset**.
+### 3. Projection Displacement
 
-The relevant training directory contains:
+For each evaluated point, the baseline and perturbed image coordinates are compared. Pixel displacement is calculated as the Euclidean distance between the two projected positions:
 
-```text
-training/
-├── velodyne/
-├── image_2/
-├── calib/
-└── label_2/
-```
+$$
+d_{\text{pixel}} =
+\sqrt{
+(u_{\text{perturbed}}-u_{\text{baseline}})^2+
+(v_{\text{perturbed}}-v_{\text{baseline}})^2
+}
+$$
 
-### Directory contents
+Here, $u$ and $v$ denote horizontal and vertical image coordinates.
 
-| Directory   | Description                               |
-| ----------- | ----------------------------------------- |
-| `velodyne/` | LiDAR point clouds stored as `.bin` files |
-| `image_2/`  | Left camera images                        |
-| `calib/`    | Camera/LiDAR calibration files            |
-| `label_2/`  | 3D object annotations                     |
+The analysis summarizes displacement using:
 
-Each sample is identified using a six-digit frame ID.
----
+- Mean pixel displacement.
+- Median pixel displacement.
+- 95th-percentile pixel displacement.
+- Mean absolute horizontal displacement.
+- Mean absolute vertical displacement.
+- Fraction of points displaced by more than 3 pixels.
+- Fraction of points remaining inside the image boundaries.
+- Fraction of points retaining positive camera projection depth.
 
-# KITTI LiDAR Point Clouds
+The 3-pixel threshold is an analysis choice, not a validated safety or perception threshold.
 
-Each KITTI Velodyne file contains points represented as:
+### 4. Evaluation Across KITTI Frames
 
-```text
-[x, y, z, reflectance]
-```
+The experiment was evaluated across 30 KITTI frames. Per-frame statistics were calculated and then summarized across the evaluated frames to compare different perturbation configurations.
 
-Therefore, every LiDAR point contains four floating-point values:
+The distance-based analysis also examined the effect of a +2° rotation around the camera Y-axis at different camera-depth intervals.
 
-| Value         | Meaning                       |
-| ------------- | ----------------------------- |
-| `x`           | X coordinate                  |
-| `y`           | Y coordinate                  |
-| `z`           | Z coordinate                  |
-| `reflectance` | LiDAR intensity / reflectance |
+| Camera Depth | Mean Pixel Displacement (px) | Median Pixel Displacement (px) | Evaluated Points |
+|---|---:|---:|---:|
+| 0–10 m | 31.22 | 29.64 | 214,326 |
+| 10–20 m | 29.95 | 28.57 | 223,019 |
+| 20–30 m | 29.12 | 28.28 | 64,424 |
+| 30–40 m | 28.59 | 28.05 | 33,354 |
+| 40–50 m | 28.12 | 27.65 | 18,643 |
+| 50–80 m | 27.21 | 26.67 | 17,783 |
 
-The visualization primarily uses the first three values to construct the 3D point cloud.
+These values show a modest decrease in average displacement across the evaluated depth bins for this particular perturbation and dataset sample. They should not be interpreted as evidence that rotational calibration errors are inherently less significant at greater distances.
 
----
+The 80 m and beyond bin contained no evaluated points and is therefore excluded from the table.
 
-The visualization can include:
+## Methodology
 
-* 3D box surfaces
-* Box edges
-* Corner spheres
-* Heading arrows
-* Object IDs
-* Class labels
-* Object-specific colors
+The experiment follows this workflow:
 
----
+1. Load LiDAR points, camera images, and calibration parameters from KITTI.
+2. Transform LiDAR points into the camera coordinate frame.
+3. Project baseline-visible points into the camera image.
+4. Apply a controlled rotation or translation to the extrinsic transformation.
+5. Reproject the same points using the perturbed transformation.
+6. Calculate pixel displacement, image visibility, and related statistics.
+7. Aggregate per-frame measurements and compare perturbation configurations.
+8. Analyze displacement across camera-depth intervals.
 
-# Point Cloud Visualization
+The evaluated point set is based on the existing pipeline's baseline visibility filtering. Consequently, this experiment measures how initially visible points move under perturbation rather than evaluating every raw LiDAR point.
 
-LiDAR points are visualized using `vedo`.
+## Technology Stack
 
-```
-
-The point color can be determined from the point's depth coordinate.
-
-This produces a colored 3D representation of the LiDAR scene.
-
----
-
-# Bird's-Eye View
-
-The project also generates a simplified **Bird's-Eye View representation**.
-
-The BEV visualization maps the spatial coordinates of points onto a 2D image:
-
-```text
-LiDAR Point Cloud
-       │
-       ▼
-Select X/Y coordinates
-       │
-       ▼
-Normalize coordinates
-       │
-       ▼
-Map to image pixels
-       │
-       ▼
-     BEV Image
-```
-
-The implementation uses the X and Y coordinates of the point cloud to construct the 2D representation.
-
-3D object boxes can also be projected into this representation.
-
+- **Python** — experiment implementation and data processing.
+- **NumPy** — numerical operations and coordinate transformations.
+- **OpenCV** — camera image handling and projection-related operations.
+- **Vedo** — 3D point-cloud visualization.
+- **KITTI 3D Object Detection Dataset** — LiDAR, camera, labels, and calibration data.
 ---
 
 # Camera Visualization
